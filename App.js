@@ -2,8 +2,11 @@
 // App completo em um único arquivo, conforme solicitado.
 // Comentários explicam: conexão com Firebase, leitura de QR Code e exportação para Excel.
 
-import 'react-native-gesture-handler';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Feather } from '@expo/vector-icons';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,13 +20,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Feather } from '@expo/vector-icons';
+import 'react-native-gesture-handler';
 
 // Fonts (Roboto)
-import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@expo-google-fonts/roboto';
+import { Roboto_400Regular, Roboto_500Medium, Roboto_700Bold, useFonts } from '@expo-google-fonts/roboto';
 
 // Expo Camera (QR)
 // A API de câmera do Expo permite escanear códigos de barras/QR.
@@ -31,46 +31,47 @@ import { useFonts, Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 // Exportação e arquivos
-// expo-file-system para salvar o arquivo gerado
-// expo-sharing para compartilhar o arquivo com outros apps
-import * as FileSystem from 'expo-file-system';
+// CORREÇÃO: Importando a API legacy para compatibilidade
+import { documentDirectory, EncodingType, writeAsStringAsync } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import XLSX from 'xlsx';
+import * as XLSX from 'xlsx';
 
 // Firebase SDKs
 // Importante: Preencha firebaseConfig com as suas credenciais do projeto.
 // A inicialização do app configura Auth e Firestore.
-import { initializeApp, getApp, getApps } from 'firebase/app';
+import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
+  createUserWithEmailAndPassword,
   getAuth,
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
   signOut,
+  updateProfile,
 } from 'firebase/auth';
 import {
-  getFirestore,
+  collection,
   doc,
   getDoc,
+  getDocs,
+  getFirestore,
+  onSnapshot,
+  orderBy,
+  query,
   setDoc,
   updateDoc,
-  collection,
-  onSnapshot,
-  query,
-  orderBy,
-  getDocs,
 } from 'firebase/firestore';
 
-// Paleta de Cores solicitada
+// Paleta de Cores aprimorada
 const COLORS = {
   primary: '#0A2540',
   accent: '#007BFF',
-  background: '#FFFFFF',
-  text: '#000000',
+  background: '#F8F9FA', // Fundo mais suave
+  text: '#212529',
+  subtleText: '#6c757d',
   success: '#28a745',
-  error: '#dc3545',
+  error: '#E63946', // Vermelho para ações de perigo
   card: '#FFFFFF',
+  border: '#DEE2E6',
 };
 
 // Tema de navegação (ajustes básicos de cor)
@@ -82,7 +83,7 @@ const navTheme = {
     background: COLORS.background,
     card: COLORS.card,
     text: COLORS.text,
-    border: '#EAEAEA',
+    border: COLORS.border,
     notification: COLORS.accent,
   },
 };
@@ -93,7 +94,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyD_S3KjuS7S5HHNkkf3RNR8Rth2KfkPm6M",
   authDomain: "locus-64393.firebaseapp.com",
   projectId: "locus-64393",
-  storageBucket: "locus-64393.firebasestorage.app",
+  storageBucket: "locus-64393.appspot.com",
   messagingSenderId: "774733852369",
   appId: "1:774733852369:web:b4507af879a0f2f2695ff0",
   measurementId: "G-W03DW6DMSE"
@@ -115,11 +116,23 @@ const AuthStack = createNativeStackNavigator();
 const AppTabs = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
 
+// Componente do Logo
+const LocusLogo = () => (
+    <View style={styles.logoContainer}>
+      <Text style={styles.logoText}>L</Text>
+      <View style={styles.logoO}>
+        <View style={styles.logoOInner} />
+      </View>
+      <Text style={styles.logoText}>cus</Text>
+    </View>
+  );
+
 // Componentes de UI auxiliares
-const Header = ({ title, right }) => (
+const Header = ({ title, left, right }) => (
   <View style={styles.header}>
-    <Text style={styles.headerTitle}>{title}</Text>
-    <View style={{ flexDirection: 'row', alignItems: 'center' }}>{right}</View>
+    <View style={styles.headerSide}>{left}</View>
+    <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+    <View style={[styles.headerSide, { alignItems: 'flex-end' }]}>{right}</View>
   </View>
 );
 
@@ -127,19 +140,26 @@ const Card = ({ children, style }) => (
   <View style={[styles.card, style]}>{children}</View>
 );
 
-const PrimaryButton = ({ title, icon, onPress, style }) => (
-  <TouchableOpacity onPress={onPress} style={[styles.primaryButton, style]}>
-    <Feather name={icon} size={22} color="#FFFFFF" style={{ marginRight: 8 }} />
+const PrimaryButton = ({ title, icon, onPress, style, disabled }) => (
+  <TouchableOpacity onPress={onPress} style={[styles.primaryButton, disabled && styles.disabledButton, style]} disabled={disabled}>
+    {icon && <Feather name={icon} size={20} color="#FFFFFF" style={{ marginRight: 10 }} />}
     <Text style={styles.primaryButtonText}>{title}</Text>
   </TouchableOpacity>
 );
 
 const OutlineButton = ({ title, icon, onPress, style }) => (
   <TouchableOpacity onPress={onPress} style={[styles.outlineButton, style]}>
-    <Feather name={icon} size={20} color={COLORS.primary} style={{ marginRight: 8 }} />
+     {icon && <Feather name={icon} size={18} color={COLORS.primary} style={{ marginRight: 8 }} />}
     <Text style={styles.outlineButtonText}>{title}</Text>
   </TouchableOpacity>
 );
+
+const DangerButton = ({ title, icon, onPress, style }) => (
+    <TouchableOpacity onPress={onPress} style={[styles.dangerButton, style]}>
+      {icon && <Feather name={icon} size={16} color={COLORS.error} style={{ marginRight: 6 }} />}
+      <Text style={styles.dangerButtonText}>{title}</Text>
+    </TouchableOpacity>
+  );
 
 // Telas de Autenticação
 const LoginScreen = ({ navigation }) => {
@@ -148,21 +168,26 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (!email || !password) {
+        Alert.alert('Atenção', 'Por favor, preencha email e senha.');
+        return;
+    }
     try {
       setLoading(true);
       // Comentário: Login com Firebase Auth usando email/senha.
       await signInWithEmailAndPassword(auth, email.trim(), password);
     } catch (err) {
-      Alert.alert('Erro ao entrar', err.message);
+      Alert.alert('Erro ao entrar', 'Verifique suas credenciais e tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Header title="Entrar" />
-      <Card>
+    <SafeAreaView style={styles.authContainer}>
+      <LocusLogo />
+      <Text style={styles.authSubtitle}>Gestão de Patrimônio</Text>
+      <Card style={{ marginHorizontal: 24 }}>
         <Text style={styles.label}>Email</Text>
         <TextInput
           style={styles.input}
@@ -170,7 +195,8 @@ const LoginScreen = ({ navigation }) => {
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
-          placeholder="seuemail@empresa.com"
+          placeholder="Digite seu e-mail..."
+          placeholderTextColor={COLORS.subtleText}
         />
         <Text style={styles.label}>Senha</Text>
         <TextInput
@@ -178,15 +204,13 @@ const LoginScreen = ({ navigation }) => {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          placeholder="••••••••"
+          placeholder="Digite sua senha..."
+          placeholderTextColor={COLORS.subtleText}
         />
-        <PrimaryButton title={loading ? 'Entrando...' : 'Entrar'} icon="log-in" onPress={handleLogin} />
-        <View style={{ height: 12 }} />
-        <OutlineButton
-          title="Não tem conta? Cadastre-se"
-          icon="user-plus"
-          onPress={() => navigation.navigate('Cadastro')}
-        />
+        <PrimaryButton title={loading ? 'Entrando...' : 'Entrar'} icon="log-in" onPress={handleLogin} disabled={loading} />
+        <TouchableOpacity style={{ marginTop: 20 }} onPress={() => navigation.navigate('Cadastro')}>
+            <Text style={styles.linkText}>Não tem conta? <Text style={{fontWeight: 'bold'}}>Cadastre-se</Text></Text>
+        </TouchableOpacity>
       </Card>
     </SafeAreaView>
   );
@@ -209,7 +233,7 @@ const SignupScreen = ({ navigation }) => {
       // Comentário: Criação de usuário no Firebase Auth e atualização do displayName.
       const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
       await updateProfile(cred.user, { displayName: usuario.trim() || undefined });
-      Alert.alert('Sucesso', 'Usuário cadastrado!');
+      Alert.alert('Sucesso', 'Usuário cadastrado! Você já pode entrar.');
       navigation.goBack();
     } catch (err) {
       Alert.alert('Erro ao cadastrar', err.message);
@@ -219,11 +243,12 @@ const SignupScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Header title="Cadastro" />
-      <Card>
+    <SafeAreaView style={styles.authContainer}>
+       <Text style={styles.authTitle}>Criar Conta</Text>
+       <Text style={styles.authSubtitle}>Preencha os dados para começar</Text>
+      <Card style={{ marginHorizontal: 24 }}>
         <Text style={styles.label}>Usuário</Text>
-        <TextInput style={styles.input} value={usuario} onChangeText={setUsuario} placeholder="Seu nome" />
+        <TextInput style={styles.input} value={usuario} onChangeText={setUsuario} placeholder="Seu nome" placeholderTextColor={COLORS.subtleText} />
         <Text style={styles.label}>Email</Text>
         <TextInput
           style={styles.input}
@@ -231,13 +256,17 @@ const SignupScreen = ({ navigation }) => {
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
-          placeholder="seuemail@empresa.com"
+          placeholder="Digite seu e-mail..."
+          placeholderTextColor={COLORS.subtleText}
         />
         <Text style={styles.label}>Senha</Text>
-        <TextInput style={styles.input} secureTextEntry value={password} onChangeText={setPassword} placeholder="••••••••" />
+        <TextInput style={styles.input} secureTextEntry value={password} onChangeText={setPassword} placeholder="Mínimo 6 caracteres" placeholderTextColor={COLORS.subtleText} />
         <Text style={styles.label}>Confirmar Senha</Text>
-        <TextInput style={styles.input} secureTextEntry value={confirm} onChangeText={setConfirm} placeholder="••••••••" />
-        <PrimaryButton title={loading ? 'Cadastrando...' : 'Cadastrar'} icon="user-check" onPress={handleSignup} />
+        <TextInput style={styles.input} secureTextEntry value={confirm} onChangeText={setConfirm} placeholder="Repita a senha" placeholderTextColor={COLORS.subtleText}/>
+        <PrimaryButton title={loading ? 'Cadastrando...' : 'Cadastrar'} icon="user-check" onPress={handleSignup} disabled={loading}/>
+         <TouchableOpacity style={{ marginTop: 20 }} onPress={() => navigation.goBack()}>
+            <Text style={styles.linkText}>Já tem uma conta? <Text style={{fontWeight: 'bold'}}>Entrar</Text></Text>
+        </TouchableOpacity>
       </Card>
     </SafeAreaView>
   );
@@ -252,19 +281,23 @@ const HomeScreen = ({ navigation, route }) => {
     try {
       // Comentário: Buscar documentos do Firestore, gerar XLSX e compartilhar.
       const snap = await getDocs(collection(db, 'patrimonio'));
+      if (snap.empty) {
+        Alert.alert('Atenção', 'Nenhum item de patrimônio encontrado para exportar.');
+        return;
+      }
+      
       const rows = [];
       snap.forEach((d) => {
         const data = d.data();
         rows.push({
-          COD: d.id,
+          'Nº PATRIMÔNIO': d.id, // COD agora é o patrimônio
           DESCRICAO: data.DESCRICAO || '',
           MARCA: data.MARCA || '',
           MODELO: data.MODELO || '',
-          NUMERO_SERIE: data.NUMERO_SERIE || '',
+          'N°/N° SÉRIE': data.NUMERO_SERIE || '',
           ESTADO: data.ESTADO || '',
           LOCALIZACAO: data.LOCALIZACAO || '',
-          SETOR_RESPONSAVEL: data.SETOR_RESPONSAVEL || '',
-          PATRIMONIO: data.PATRIMONIO || '',
+          'SETOR RESPONSÁVEL': data.SETOR_RESPONSAVEL || '',
         });
       });
 
@@ -272,15 +305,22 @@ const HomeScreen = ({ navigation, route }) => {
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Patrimonio');
       const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
-      const filename = FileSystem.cacheDirectory + 'patrimonio.xlsx';
-      await FileSystem.writeAsStringAsync(filename, base64, { encoding: FileSystem.EncodingType.Base64 });
+      const filename = documentDirectory + 'patrimonio.xlsx';
+      
+      await writeAsStringAsync(filename, base64, {
+        encoding: EncodingType.Base64,
+      });
 
       if (Platform.OS !== 'web' && (await Sharing.isAvailableAsync())) {
-        await Sharing.shareAsync(filename);
+        await Sharing.shareAsync(filename, {
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          dialogTitle: 'Exportar dados do patrimônio',
+        });
       } else {
-        Alert.alert('Exportado', 'Arquivo gerado em cache: patrimonio.xlsx');
+        Alert.alert('Exportado', 'Arquivo gerado com sucesso: patrimonio.xlsx');
       }
     } catch (err) {
+      console.error("Export Error:", err);
       Alert.alert('Erro ao exportar', err.message);
     }
   };
@@ -288,12 +328,17 @@ const HomeScreen = ({ navigation, route }) => {
   return (
     <SafeAreaView style={styles.container}>
       <Header
-        title={`Bem-vindo, ${welcomeName}!`}
-        right={<OutlineButton title="Sair" icon="log-out" onPress={() => signOut(auth)} />}
+        title="Início"
+        right={<DangerButton title="Sair" icon="log-out" onPress={() => signOut(auth)} />}
       />
+      <View style={{paddingHorizontal: 24, paddingTop: 16}}>
+        <Text style={styles.welcomeTitle}>Bem-vindo,</Text>
+        <Text style={styles.welcomeName}>{welcomeName}!</Text>
+      </View>
+
       <Card>
         <PrimaryButton title="Escanear Novo Patrimônio" icon="camera" onPress={() => navigation.navigate('Scanner')} />
-        <View style={{ height: 12 }} />
+        <View style={{ height: 16 }} />
         <OutlineButton title="Exportar Dados para Excel" icon="download" onPress={handleExport} />
       </Card>
     </SafeAreaView>
@@ -301,64 +346,85 @@ const HomeScreen = ({ navigation, route }) => {
 };
 
 const ScannerScreen = ({ navigation }) => {
-  const [permission, requestPermission] = useCameraPermissions();
-  const [scanned, setScanned] = useState(false);
-  const lockRef = useRef(false);
-
-  useEffect(() => {
-    (async () => {
-      if (!permission?.granted) {
-        await requestPermission();
+    const [permission, requestPermission] = useCameraPermissions();
+    const [scanned, setScanned] = useState(false);
+    const lockRef = useRef(false);
+  
+    useEffect(() => {
+      (async () => {
+        if (!permission?.granted) {
+          await requestPermission();
+        }
+      })();
+    }, [permission]);
+  
+    const handleScan = async ({ data }) => {
+      if (lockRef.current || scanned) return;
+      lockRef.current = true;
+      setScanned(true);
+      try {
+        const cod = String(data).trim();
+        const ref = doc(db, 'patrimonio', cod);
+        const snapshot = await getDoc(ref);
+        if (snapshot.exists()) {
+          navigation.replace('DetalhesItem', { cod, item: { COD: cod, ...snapshot.data() } });
+        } else {
+          navigation.replace('CadastroItem', { cod });
+        }
+      } catch (err) {
+        Alert.alert('Erro no escaneamento', err.message);
+        setScanned(false);
+        lockRef.current = false;
       }
-    })();
-  }, [permission]);
-
-  const handleScan = async ({ data }) => {
-    if (lockRef.current || scanned) return;
-    lockRef.current = true;
-    setScanned(true);
-    try {
-      const cod = String(data).trim();
-      // Comentário: Checamos no Firestore se já existe o documento com ID == QR.
-      const ref = doc(db, 'patrimonio', cod);
-      const snapshot = await getDoc(ref);
-      if (snapshot.exists()) {
-        navigation.replace('DetalhesItem', { cod, item: { COD: cod, ...snapshot.data() } });
-      } else {
-        navigation.replace('CadastroItem', { cod });
-      }
-    } catch (err) {
-      Alert.alert('Erro no escaneamento', err.message);
-      setScanned(false);
-      lockRef.current = false;
+    };
+  
+    if (!permission) {
+      return <View />;
     }
-  };
-
-  if (!permission?.granted) {
+  
+    if (!permission.granted) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <Header title="Scanner" />
+          <Card>
+            <Text style={styles.paragraph}>Permissão da câmera é necessária para escanear QR Code.</Text>
+            <PrimaryButton title="Permitir Câmera" icon="camera" onPress={requestPermission} />
+          </Card>
+        </SafeAreaView>
+      );
+    }
+  
     return (
-      <SafeAreaView style={styles.container}>
-        <Header title="Scanner" />
-        <Card>
-          <Text style={styles.paragraph}>Permissão da câmera é necessária para escanear QR Code.</Text>
-          <PrimaryButton title="Permitir Câmera" icon="camera" onPress={requestPermission} />
-        </Card>
-      </SafeAreaView>
-    );
-  }
+      <View style={{ flex: 1, backgroundColor: 'black' }}>
+        <CameraView
+          style={StyleSheet.absoluteFillObject}
+          onBarcodeScanned={scanned ? undefined : handleScan}
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+        />
+        
+        <View style={styles.scannerOverlay}>
+            <View style={styles.unfocusedArea} />
+            <View style={{ flexDirection: 'row' }}>
+                <View style={styles.unfocusedArea} />
+                <View style={styles.scannerFocusBox}>
+                    <View style={[styles.scannerCorner, styles.topLeft]} />
+                    <View style={[styles.scannerCorner, styles.topRight]} />
+                    <View style={[styles.scannerCorner, styles.bottomLeft]} />
+                    <View style={[styles.scannerCorner, styles.bottomRight]} />
+                </View>
+                <View style={styles.unfocusedArea} />
+            </View>
+            <View style={[styles.unfocusedArea, { justifyContent: 'flex-start', paddingTop: 24 }]}>
+                <Text style={styles.scannerHelperText}>Aponte para o QR Code</Text>
+            </View>
+        </View>
 
-  return (
-    <View style={{ flex: 1, backgroundColor: 'black' }}>
-      <CameraView
-        style={{ flex: 1 }}
-        onBarcodeScanned={handleScan}
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-      />
-      <View style={styles.overlay}>
-        <Text style={styles.overlayText}>Aponte para o QR Code</Text>
+        <TouchableOpacity style={styles.scannerCloseButton} onPress={() => navigation.goBack()}>
+            <Feather name="arrow-left" size={28} color="white" />
+        </TouchableOpacity>
       </View>
-    </View>
-  );
-};
+    );
+  };
 
 const CadastroItemScreen = ({ route, navigation }) => {
   const cod = route.params?.cod || '';
@@ -370,7 +436,6 @@ const CadastroItemScreen = ({ route, navigation }) => {
     ESTADO: 'Novo',
     LOCALIZACAO: '',
     SETOR_RESPONSAVEL: '',
-    PATRIMONIO: '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -392,23 +457,30 @@ const CadastroItemScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Cadastro de Item" />
+      <Header 
+        title="Cadastro de Item"
+        left={
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
+            <Feather name="arrow-left" size={24} color={COLORS.primary} />
+          </TouchableOpacity>
+        }
+      />
       <ScrollView contentContainerStyle={styles.scroll}>
         <Card>
-          <Text style={styles.label}>COD (QR)</Text>
-          <TextInput style={[styles.input, { backgroundColor: '#F3F4F6' }]} value={cod} editable={false} />
+          <Text style={styles.label}>Nº Patrimônio (QR)</Text>
+          <TextInput style={[styles.input, { backgroundColor: '#F3F4F6', color: COLORS.subtleText }]} value={cod} editable={false} />
 
           <Text style={styles.label}>DESCRIÇÃO</Text>
-          <TextInput style={styles.input} value={form.DESCRICAO} onChangeText={(t) => setField('DESCRICAO', t)} />
+          <TextInput style={styles.input} value={form.DESCRICAO} onChangeText={(t) => setField('DESCRICAO', t)} placeholderTextColor={COLORS.subtleText} />
 
           <Text style={styles.label}>MARCA</Text>
-          <TextInput style={styles.input} value={form.MARCA} onChangeText={(t) => setField('MARCA', t)} />
+          <TextInput style={styles.input} value={form.MARCA} onChangeText={(t) => setField('MARCA', t)} placeholderTextColor={COLORS.subtleText} />
 
           <Text style={styles.label}>MODELO</Text>
-          <TextInput style={styles.input} value={form.MODELO} onChangeText={(t) => setField('MODELO', t)} />
+          <TextInput style={styles.input} value={form.MODELO} onChangeText={(t) => setField('MODELO', t)} placeholderTextColor={COLORS.subtleText} />
 
           <Text style={styles.label}>N°/N° SÉRIE</Text>
-          <TextInput style={styles.input} value={form.NUMERO_SERIE} onChangeText={(t) => setField('NUMERO_SERIE', t)} />
+          <TextInput style={styles.input} value={form.NUMERO_SERIE} onChangeText={(t) => setField('NUMERO_SERIE', t)} placeholderTextColor={COLORS.subtleText} />
 
           <Text style={styles.label}>ESTADO</Text>
           <Dropdown
@@ -418,15 +490,12 @@ const CadastroItemScreen = ({ route, navigation }) => {
           />
 
           <Text style={styles.label}>LOCALIZAÇÃO</Text>
-          <TextInput style={styles.input} value={form.LOCALIZACAO} onChangeText={(t) => setField('LOCALIZACAO', t)} />
+          <TextInput style={styles.input} value={form.LOCALIZACAO} onChangeText={(t) => setField('LOCALIZACAO', t)} placeholderTextColor={COLORS.subtleText} />
 
           <Text style={styles.label}>SETOR RESPONSÁVEL</Text>
-          <TextInput style={styles.input} value={form.SETOR_RESPONSAVEL} onChangeText={(t) => setField('SETOR_RESPONSAVEL', t)} />
+          <TextInput style={styles.input} value={form.SETOR_RESPONSAVEL} onChangeText={(t) => setField('SETOR_RESPONSAVEL', t)} placeholderTextColor={COLORS.subtleText} />
 
-          <Text style={styles.label}>PATRIMÔNIO</Text>
-          <TextInput style={styles.input} value={form.PATRIMONIO} onChangeText={(t) => setField('PATRIMONIO', t)} />
-
-          <PrimaryButton title={saving ? 'Salvando...' : 'Salvar Item'} icon="save" onPress={saveItem} />
+          <PrimaryButton title={saving ? 'Salvando...' : 'Salvar Item'} icon="save" onPress={saveItem} disabled={saving} />
         </Card>
       </ScrollView>
     </SafeAreaView>
@@ -448,6 +517,10 @@ const ItensScreen = ({ navigation }) => {
       setItems(list);
       setFiltered(applyFilter(list, queryText));
       setLoading(false);
+    }, (error) => {
+        console.error("Erro ao buscar itens: ", error);
+        Alert.alert("Erro", "Não foi possível carregar os itens.");
+        setLoading(false);
     });
     return () => unsub();
   }, []);
@@ -461,15 +534,14 @@ const ItensScreen = ({ navigation }) => {
     if (!s) return arr;
     return arr.filter((it) => {
       const fields = [
+        it.COD, // Agora o COD é o patrimônio e é pesquisável
         it.DESCRICAO,
-        it.PATRIMONIO,
         it.LOCALIZACAO,
         it.MARCA,
         it.MODELO,
         it.SETOR_RESPONSAVEL,
         it.ESTADO,
         it.NUMERO_SERIE,
-        it.COD,
       ]
         .filter(Boolean)
         .map((v) => String(v).toLowerCase());
@@ -481,7 +553,7 @@ const ItensScreen = ({ navigation }) => {
     <TouchableOpacity onPress={() => navigation.navigate('DetalhesItem', { cod: item.COD, item })}>
       <Card style={{ marginBottom: 12 }}>
         <Text style={styles.cardTitle}>{item.DESCRICAO || 'Sem descrição'}</Text>
-        <Text style={styles.cardSubtitle}>Patrimônio: {item.PATRIMONIO || '-'}</Text>
+        <Text style={styles.cardSubtitle}>Nº Patrimônio: {item.COD || '-'}</Text>
         <Text style={styles.cardSubtitle}>Localização: {item.LOCALIZACAO || '-'}</Text>
       </Card>
     </TouchableOpacity>
@@ -489,20 +561,31 @@ const ItensScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header title="Itens" />
+      <Header title="Itens Cadastrados" />
       <View style={styles.searchBar}>
-        <Feather name="search" size={18} color={COLORS.primary} />
+        <Feather name="search" size={18} color={COLORS.subtleText} />
         <TextInput
           style={styles.searchInput}
           value={queryText}
           onChangeText={setQueryText}
-          placeholder="Buscar por descrição, patrimônio, localização..."
+          placeholder="Buscar por descrição, patrimônio, etc..."
+          placeholderTextColor={COLORS.subtleText}
         />
       </View>
       {loading ? (
-        <ActivityIndicator color={COLORS.primary} style={{ marginTop: 24 }} />
+        <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 48 }} />
       ) : (
-        <FlatList data={filtered} keyExtractor={(it) => it.COD} renderItem={renderItem} contentContainerStyle={{ padding: 16 }} />
+        <FlatList 
+            data={filtered} 
+            keyExtractor={(it) => it.COD} 
+            renderItem={renderItem} 
+            contentContainerStyle={{ padding: 16 }}
+            ListEmptyComponent={() => (
+                <View style={{alignItems: 'center', marginTop: 48}}>
+                    <Text style={styles.emptyText}>Nenhum item encontrado</Text>
+                </View>
+            )}
+        />
       )}
     </SafeAreaView>
   );
@@ -519,7 +602,6 @@ const DetalhesItemScreen = ({ route, navigation }) => {
     ESTADO: item?.ESTADO || 'Novo',
     LOCALIZACAO: item?.LOCALIZACAO || '',
     SETOR_RESPONSAVEL: item?.SETOR_RESPONSAVEL || '',
-    PATRIMONIO: item?.PATRIMONIO || '',
   });
 
   const saveChanges = async () => {
@@ -537,43 +619,45 @@ const DetalhesItemScreen = ({ route, navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <Header
-        title={`Item ${cod}`}
+        title="Detalhes do Item"
+        left={
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
+            <Feather name="arrow-left" size={24} color={COLORS.primary} />
+          </TouchableOpacity>
+        }
         right={
           <OutlineButton title={editing ? 'Cancelar' : 'Editar'} icon={editing ? 'x' : 'edit'} onPress={() => setEditing((e) => !e)} />
         }
       />
       <ScrollView contentContainerStyle={styles.scroll}>
         <Card>
-          <Text style={styles.label}>COD (QR)</Text>
-          <TextInput style={[styles.input, { backgroundColor: '#F3F4F6' }]} value={cod} editable={false} />
+          <Text style={styles.label}>Nº Patrimônio (QR)</Text>
+          <TextInput style={[styles.input, { backgroundColor: '#F3F4F6', color: COLORS.subtleText }]} value={cod} editable={false} />
 
           <Text style={styles.label}>DESCRIÇÃO</Text>
-          <TextInput style={styles.input} value={form.DESCRICAO} onChangeText={(t) => setField('DESCRICAO', t)} editable={editing} />
+          <TextInput style={editing ? styles.input : styles.inputDisabled} value={form.DESCRICAO} onChangeText={(t) => setField('DESCRICAO', t)} editable={editing} placeholderTextColor={COLORS.subtleText} />
 
           <Text style={styles.label}>MARCA</Text>
-          <TextInput style={styles.input} value={form.MARCA} onChangeText={(t) => setField('MARCA', t)} editable={editing} />
+          <TextInput style={editing ? styles.input : styles.inputDisabled} value={form.MARCA} onChangeText={(t) => setField('MARCA', t)} editable={editing} placeholderTextColor={COLORS.subtleText} />
 
           <Text style={styles.label}>MODELO</Text>
-          <TextInput style={styles.input} value={form.MODELO} onChangeText={(t) => setField('MODELO', t)} editable={editing} />
+          <TextInput style={editing ? styles.input : styles.inputDisabled} value={form.MODELO} onChangeText={(t) => setField('MODELO', t)} editable={editing} placeholderTextColor={COLORS.subtleText} />
 
           <Text style={styles.label}>N°/N° SÉRIE</Text>
-          <TextInput style={styles.input} value={form.NUMERO_SERIE} onChangeText={(t) => setField('NUMERO_SERIE', t)} editable={editing} />
+          <TextInput style={editing ? styles.input : styles.inputDisabled} value={form.NUMERO_SERIE} onChangeText={(t) => setField('NUMERO_SERIE', t)} editable={editing} placeholderTextColor={COLORS.subtleText} />
 
           <Text style={styles.label}>ESTADO</Text>
           {editing ? (
             <Dropdown value={form.ESTADO} onChange={(v) => setField('ESTADO', v)} options={['Novo', 'Em uso', 'Em manutenção', 'Danificado']} />
           ) : (
-            <TextInput style={[styles.input, { backgroundColor: '#F3F4F6' }]} value={form.ESTADO} editable={false} />
+            <TextInput style={styles.inputDisabled} value={form.ESTADO} editable={false} />
           )}
 
           <Text style={styles.label}>LOCALIZAÇÃO</Text>
-          <TextInput style={styles.input} value={form.LOCALIZACAO} onChangeText={(t) => setField('LOCALIZACAO', t)} editable={editing} />
+          <TextInput style={editing ? styles.input : styles.inputDisabled} value={form.LOCALIZACAO} onChangeText={(t) => setField('LOCALIZACAO', t)} editable={editing} placeholderTextColor={COLORS.subtleText} />
 
           <Text style={styles.label}>SETOR RESPONSÁVEL</Text>
-          <TextInput style={styles.input} value={form.SETOR_RESPONSAVEL} onChangeText={(t) => setField('SETOR_RESPONSAVEL', t)} editable={editing} />
-
-          <Text style={styles.label}>PATRIMÔNIO</Text>
-          <TextInput style={styles.input} value={form.PATRIMONIO} onChangeText={(t) => setField('PATRIMONIO', t)} editable={editing} />
+          <TextInput style={editing ? styles.input : styles.inputDisabled} value={form.SETOR_RESPONSAVEL} onChangeText={(t) => setField('SETOR_RESPONSAVEL', t)} editable={editing} placeholderTextColor={COLORS.subtleText} />
 
           {editing && <PrimaryButton title="Salvar alterações" icon="save" onPress={saveChanges} />}
         </Card>
@@ -589,16 +673,16 @@ const Dropdown = ({ value, onChange, options }) => {
     <View>
       <TouchableOpacity style={styles.input} onPress={() => setOpen((o) => !o)}>
         <Text style={{ fontFamily: 'Roboto_400Regular', color: COLORS.text }}>{value}</Text>
-        <Feather name={open ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} style={{ position: 'absolute', right: 12, top: 12 }} />
+        <Feather name={open ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.primary} style={{ position: 'absolute', right: 12, top: 14 }} />
       </TouchableOpacity>
       {open && (
-        <Card style={{ padding: 0 }}>
+        <View style={styles.dropdownContainer}>
           {options.map((opt) => (
             <TouchableOpacity key={opt} style={styles.dropdownItem} onPress={() => { onChange(opt); setOpen(false); }}>
               <Text style={{ fontFamily: 'Roboto_400Regular', color: COLORS.text }}>{opt}</Text>
             </TouchableOpacity>
           ))}
-        </Card>
+        </View>
       )}
     </View>
   );
@@ -610,8 +694,15 @@ const Tabs = () => (
     screenOptions={({ route }) => ({
       headerShown: false,
       tabBarActiveTintColor: COLORS.accent,
-      tabBarInactiveTintColor: '#7A7A7A',
-      tabBarStyle: { borderTopColor: '#EAEAEA' },
+      tabBarInactiveTintColor: COLORS.subtleText,
+      tabBarStyle: { 
+          backgroundColor: COLORS.card,
+          borderTopColor: COLORS.border 
+      },
+      tabBarLabelStyle: {
+        fontFamily: 'Roboto_500Medium',
+        fontSize: 12,
+      },
       tabBarIcon: ({ color, size }) => {
         const icon = route.name === 'Início' ? 'home' : 'grid';
         return <Feather name={icon} size={size} color={color} />;
@@ -638,9 +729,9 @@ const AppNavigator = () => {
 
   if (checking) {
     return (
-      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}> 
-        <ActivityIndicator color={COLORS.primary} />
-      </SafeAreaView>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}> 
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
     );
   }
 
@@ -671,11 +762,7 @@ export default function App() {
   });
 
   if (!fontsLoaded) {
-    return (
-      <SafeAreaView style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}> 
-        <ActivityIndicator color={COLORS.primary} />
-      </SafeAreaView>
-    );
+    return null; // Retorna nulo para evitar piscar uma tela vazia
   }
 
   return (
@@ -685,136 +772,317 @@ export default function App() {
   );
 }
 
+const SCANNER_BOX_SIZE = 250;
+
 // Estilos (cards com cantos arredondados e sombras sutis, espaçamento consistente)
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EAEAEA',
-    backgroundColor: COLORS.background,
-  },
-  headerTitle: {
-    fontSize: 20,
-    color: COLORS.text,
-    fontFamily: 'Roboto_700Bold',
-  },
-  card: {
-    backgroundColor: COLORS.card,
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  label: {
-    fontSize: 13,
-    color: '#555',
-    marginBottom: 6,
-    fontFamily: 'Roboto_500Medium',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
-    fontFamily: 'Roboto_400Regular',
-    color: COLORS.text,
-    backgroundColor: '#FFFFFF',
-  },
-  primaryButton: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 12,
-    borderRadius: 10,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontFamily: 'Roboto_700Bold',
-    fontSize: 16,
-  },
-  outlineButton: {
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    paddingVertical: 11,
-    borderRadius: 10,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  outlineButtonText: {
-    color: COLORS.primary,
-    fontFamily: 'Roboto_700Bold',
-    fontSize: 16,
-  },
-  paragraph: {
-    color: COLORS.text,
-    fontFamily: 'Roboto_400Regular',
-    marginBottom: 16,
-  },
-  overlay: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  overlayText: {
-    color: '#FFFFFF',
-    fontFamily: 'Roboto_500Medium',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  cardTitle: {
-    fontSize: 16,
-    color: COLORS.text,
-    fontFamily: 'Roboto_700Bold',
-  },
-  cardSubtitle: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 4,
-    fontFamily: 'Roboto_400Regular',
-  },
-  searchBar: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: 'Roboto_400Regular',
-    color: COLORS.text,
-    marginLeft: 8,
-  },
-  dropdownItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EEE',
-  },
-  scroll: {
-    paddingBottom: 32,
-  },
-});
+    container: {
+      flex: 1,
+      backgroundColor: COLORS.background,
+    },
+    authContainer: {
+      flex: 1,
+      backgroundColor: COLORS.background,
+      justifyContent: 'center',
+      paddingBottom: 50,
+    },
+    authTitle: {
+      fontSize: 36,
+      fontFamily: 'Roboto_700Bold',
+      color: COLORS.primary,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    authSubtitle: {
+      fontSize: 16,
+      fontFamily: 'Roboto_400Regular',
+      color: COLORS.subtleText,
+      textAlign: 'center',
+      marginBottom: 32,
+    },
+    logoContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    logoText: {
+        fontSize: 48,
+        fontFamily: 'Roboto_700Bold',
+        color: COLORS.primary,
+    },
+    logoO: {
+        width: 38,
+        height: 38,
+        borderRadius: 19,
+        borderWidth: 3,
+        borderColor: COLORS.primary,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginHorizontal: -2,
+    },
+    logoOInner: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: COLORS.primary,
+    },
+    linkText: {
+      textAlign: 'center',
+      color: COLORS.accent,
+      fontFamily: 'Roboto_400Regular',
+      fontSize: 15,
+    },
+    header: {
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.border,
+      backgroundColor: COLORS.card,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      minHeight: 60,
+    },
+    headerSide: {
+      flex: 1,
+      flexDirection: 'row',
+    },
+    headerTitle: {
+      flex: 2,
+      fontSize: 18,
+      color: COLORS.text,
+      fontFamily: 'Roboto_700Bold',
+      textAlign: 'center',
+    },
+    welcomeTitle: {
+      fontSize: 28,
+      fontFamily: 'Roboto_700Bold',
+      color: COLORS.primary,
+    },
+    welcomeName: {
+      fontSize: 18,
+      fontFamily: 'Roboto_400Regular',
+      color: COLORS.subtleText,
+      marginBottom: 16,
+    },
+    card: {
+      backgroundColor: COLORS.card,
+      marginHorizontal: 16,
+      padding: 20,
+      borderRadius: 16,
+      shadowColor: '#000',
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
+    },
+    label: {
+      fontSize: 14,
+      color: COLORS.subtleText,
+      marginBottom: 8,
+      fontFamily: 'Roboto_500Medium',
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      marginBottom: 16,
+      fontFamily: 'Roboto_400Regular',
+      fontSize: 16,
+      color: COLORS.text,
+      backgroundColor: '#FFFFFF',
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    inputDisabled: {
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 12,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      marginBottom: 16,
+      fontFamily: 'Roboto_400Regular',
+      fontSize: 16,
+      color: COLORS.subtleText,
+      backgroundColor: COLORS.background,
+    },
+    primaryButton: {
+      backgroundColor: COLORS.primary,
+      paddingVertical: 16,
+      borderRadius: 12,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: COLORS.primary,
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 5,
+    },
+    primaryButtonText: {
+      color: '#FFFFFF',
+      fontFamily: 'Roboto_700Bold',
+      fontSize: 16,
+    },
+    disabledButton: {
+        opacity: 0.5,
+    },
+    outlineButton: {
+      borderWidth: 1.5,
+      borderColor: COLORS.primary,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    outlineButtonText: {
+      color: COLORS.primary,
+      fontFamily: 'Roboto_700Bold',
+      fontSize: 16,
+    },
+    dangerButton: {
+      backgroundColor: '#FFF1F2',
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    dangerButtonText: {
+      color: COLORS.error,
+      fontFamily: 'Roboto_700Bold',
+      fontSize: 14,
+    },
+    paragraph: {
+      color: COLORS.text,
+      fontFamily: 'Roboto_400Regular',
+      marginBottom: 16,
+      lineHeight: 22,
+    },
+    cardTitle: {
+      fontSize: 16,
+      color: COLORS.text,
+      fontFamily: 'Roboto_700Bold',
+    },
+    cardSubtitle: {
+      fontSize: 14,
+      color: COLORS.subtleText,
+      marginTop: 4,
+      fontFamily: 'Roboto_400Regular',
+    },
+    searchBar: {
+      marginHorizontal: 16,
+      marginTop: 16,
+      marginBottom: 8,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: COLORS.card,
+      borderWidth: 1,
+      borderColor: COLORS.border,
+    },
+    searchInput: {
+      flex: 1,
+      fontFamily: 'Roboto_400Regular',
+      color: COLORS.text,
+      marginLeft: 8,
+      height: 50,
+      fontSize: 16,
+    },
+    dropdownContainer: {
+      borderWidth: 1,
+      borderColor: COLORS.border,
+      borderRadius: 12,
+      backgroundColor: COLORS.card,
+      marginTop: -12,
+      marginBottom: 16,
+      overflow: 'hidden',
+    },
+    dropdownItem: {
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: COLORS.border,
+    },
+    scroll: {
+      paddingBottom: 32,
+    },
+    emptyText: {
+      fontFamily: 'Roboto_500Medium',
+      color: COLORS.subtleText,
+      fontSize: 16,
+    },
+    // Estilos do Scanner
+    scannerOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    unfocusedArea: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        width: '100%',
+    },
+    scannerFocusBox: {
+        width: SCANNER_BOX_SIZE,
+        height: SCANNER_BOX_SIZE,
+        position: 'relative',
+    },
+    scannerCorner: {
+        position: 'absolute',
+        width: 30,
+        height: 30,
+        borderColor: 'white',
+        borderWidth: 4,
+    },
+    topLeft: {
+        top: -2,
+        left: -2,
+        borderRightWidth: 0,
+        borderBottomWidth: 0,
+    },
+    topRight: {
+        top: -2,
+        right: -2,
+        borderLeftWidth: 0,
+        borderBottomWidth: 0,
+    },
+    bottomLeft: {
+        bottom: -2,
+        left: -2,
+        borderRightWidth: 0,
+        borderTopWidth: 0,
+    },
+    bottomRight: {
+        bottom: -2,
+        right: -2,
+        borderLeftWidth: 0,
+        borderTopWidth: 0,
+    },
+    scannerHelperText: {
+        color: 'white',
+        fontSize: 16,
+        fontFamily: 'Roboto_500Medium',
+        textAlign: 'center'
+    },
+    scannerCloseButton: {
+        position: 'absolute',
+        top: Platform.OS === 'android' ? 40 : 60,
+        left: 16,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        borderRadius: 20,
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+  });
+
