@@ -123,7 +123,7 @@ const LocusLogo = () => (
       <View style={styles.logoO}>
         <View style={styles.logoOInner} />
       </View>
-      <Text style={styles.logoText}>cus</Text>
+      <Text style={styles.logoText}>CUS</Text>
     </View>
   );
 
@@ -387,7 +387,7 @@ const ScannerScreen = ({ navigation }) => {
         <SafeAreaView style={styles.container}>
           <Header title="Scanner" />
           <Card>
-            <Text style={styles.paragraph}>Permissão da câmera é necessária para escanear QR Code.</Text>
+            <Text style={styles.paragraph}>Permissão da câmera é necessária para escanear.</Text>
             <PrimaryButton title="Permitir Câmera" icon="camera" onPress={requestPermission} />
           </Card>
         </SafeAreaView>
@@ -399,7 +399,9 @@ const ScannerScreen = ({ navigation }) => {
         <CameraView
           style={StyleSheet.absoluteFillObject}
           onBarcodeScanned={scanned ? undefined : handleScan}
-          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          barcodeScannerSettings={{
+            barcodeTypes: ['qr', 'ean13', 'ean8', 'code128', 'code39', 'code93', 'upc_a', 'upc_e'],
+          }}
         />
         
         <View style={styles.scannerOverlay}>
@@ -415,7 +417,7 @@ const ScannerScreen = ({ navigation }) => {
                 <View style={styles.unfocusedArea} />
             </View>
             <View style={[styles.unfocusedArea, { justifyContent: 'flex-start', paddingTop: 24 }]}>
-                <Text style={styles.scannerHelperText}>Aponte para o QR Code</Text>
+                <Text style={styles.scannerHelperText}>Aponte para o código</Text>
             </View>
         </View>
 
