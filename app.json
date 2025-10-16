@@ -46,12 +46,12 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
+    "owner": "brunof3l",
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "3157fdc0-89a4-47da-a082-3ef253ec8f18"
+        "projectId": "6597c0f7-81d1-437b-a505-8502324c28bb"
       }
-    },
-    "owner": "brunof3l"
+    }
   }
 }
