@@ -32,7 +32,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 
 // Exportação e arquivos
 // CORREÇÃO: Importando a API legacy para compatibilidade
-import { documentDirectory, EncodingType, writeAsStringAsync } from 'expo-file-system/legacy';
+import { documentDirectory, EncodingType, writeAsStringAsync } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
 
