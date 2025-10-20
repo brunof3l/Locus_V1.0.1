@@ -2,7 +2,7 @@
   "expo": {
     "name": "Locus",
     "slug": "Locus",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "locus",
@@ -16,7 +16,8 @@
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
-      "package": "com.brunof3l.Locus"
+      "package": "com.brunof3l.Locus",
+      "versionCode": 1 
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
