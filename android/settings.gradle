@@ -1,9 +1,4 @@
 pluginManagement {
-  repositories {
-    google()
-    mavenCentral()
-    gradlePluginPortal()
-  }
   def version = providers.exec {
     commandLine("node", "-e", "console.log(require('react-native/package.json').version);")
   }.standardOutput.asText.get().trim()
@@ -15,10 +10,7 @@ pluginManagement {
   }
 }
 
-plugins { 
-  id 'org.jetbrains.kotlin.android' version '2.1.20' apply false
-  id("com.facebook.react.settings") 
-}
+plugins { id("com.facebook.react.settings") }
 
 def getRNMinorVersion() {
   def version = providers.exec {
@@ -55,11 +47,6 @@ if (getRNMinorVersion() >= 75) {
 rootProject.name = 'Locus'
 
 dependencyResolutionManagement {
-  repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-  repositories {
-    google()
-    mavenCentral()
-  }
   versionCatalogs {
     reactAndroidLibs {
       from(files(new File(["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim(), "../gradle/libs.versions.toml")))

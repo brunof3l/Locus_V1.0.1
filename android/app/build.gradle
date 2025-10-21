@@ -1,8 +1,6 @@
-plugins {
-  id 'com.android.application'
-  id 'org.jetbrains.kotlin.android'
-  id 'com.facebook.react'
-}
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -117,50 +115,36 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.1.0"
+        versionName "1.0.0"
     }
     signingConfigs {
-    debug {
-        storeFile file('debug.keystore')
-        storePassword 'android'
-        keyAlias 'androiddebugkey'
-        keyPassword 'android'
-    }
-    // ADICIONE ESTE BLOCO NOVO PARA RELEASE
-    release {
-        if (project.hasProperty('MYAPP_RELEASE_STORE_FILE')) {
-            storeFile file(MYAPP_RELEASE_STORE_FILE)
-            storePassword MYAPP_RELEASE_STORE_PASSWORD
-            keyAlias MYAPP_RELEASE_KEY_ALIAS
-            keyPassword MYAPP_RELEASE_KEY_PASSWORD
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
         }
-        packagingOptions {
+    }
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            // Caution! In production, you need to generate your own keystore file.
+            // see https://reactnative.dev/docs/signed-apk-android.
+            signingConfig signingConfigs.debug
+            shrinkResources (findProperty('android.enableShrinkResourcesInReleaseBuilds')?.toBoolean() ?: false)
+            minifyEnabled enableProguardInReleaseBuilds
+            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            crunchPngs (findProperty('android.enablePngCrunchInReleaseBuilds')?.toBoolean() ?: true)
+        }
+    }
+    packagingOptions {
         jniLibs {
             useLegacyPackaging (findProperty('expo.useLegacyPackaging')?.toBoolean() ?: false)
         }
     }
-    }
 }
-
-buildTypes {
-    debug {
-        signingConfig signingConfigs.debug
-    }
-    release {
-        // Caution! In production, you need to generate your own key.
-        // see https://reactnative.dev/docs/signed-apk-android.
-        
-        // MUDE A LINHA ABAIXO
-        signingConfig signingConfigs.release // <-- AQUI ESTÁ A CORREÇÃO
-
-        shrinkResources (findProperty('android.enableShrinkResources') == 'true')
-        minifyEnabled (findProperty('android.enableProguardInReleaseBuilds') == 'true')
-        proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
-    }
-    }
-    }
-    
-
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
 // Accepts values in comma delimited lists, example:
