@@ -8,7 +8,7 @@ import Card from '../components/Card';
 import Header from '../components/Header';
 import PrimaryButton from '../components/PrimaryButton';
 import { useThemeColor } from '../constants/theme';
-import { db } from '../firebase/App';
+import { db } from '../firebase/config';
 import { styles } from '../theme';
 
 const ScannerScreen = ({ navigation }) => {

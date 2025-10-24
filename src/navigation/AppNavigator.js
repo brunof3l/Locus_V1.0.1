@@ -25,6 +25,9 @@ import { Roboto_400Regular, Roboto_500Medium, Roboto_700Bold, useFonts } from '@
 import { AuthProvider } from '../context/AuthContext';
 import { useAuth } from '../context/AuthContext';
 
+// GestureHandler root view wrapper
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
 const AuthStack = createNativeStackNavigator();
 const AppTabs = createBottomTabNavigator();
 const RootStack = createNativeStackNavigator();
@@ -112,10 +115,12 @@ export default function AppNavigator() {
 
   return (
     <AuthProvider>
-      <NavigationContainer theme={navTheme}>
-        <RootNavigator />
-      </NavigationContainer>
-      <Toast />
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <NavigationContainer theme={navTheme}>
+          <RootNavigator />
+        </NavigationContainer>
+        <Toast />
+      </GestureHandlerRootView>
     </AuthProvider>
   );
 }

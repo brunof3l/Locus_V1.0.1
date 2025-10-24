@@ -1,14 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, SafeAreaView, Text, TextInput, View } from 'react-native';
 import { collection, doc, onSnapshot, query, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
-import Header from '../components/Header';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, SafeAreaView, Text, TextInput, View } from 'react-native';
 import Card from '../components/Card';
 import Dropdown from '../components/Dropdown';
+import Header from '../components/Header';
 import OutlineButton from '../components/OutlineButton';
-import { styles } from '../theme';
+import { useThemeColor } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
-import { useThemeColor } from '../constants/theme'
+import { db } from '../firebase/config';
+import { styles } from '../theme';
 
 const AdminScreen = () => {
   const colors = useThemeColor();

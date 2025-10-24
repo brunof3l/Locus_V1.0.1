@@ -4,7 +4,7 @@ import { Alert, SafeAreaView, Text, TextInput, TouchableOpacity } from 'react-na
 import Card from '../components/Card';
 import PrimaryButton from '../components/PrimaryButton';
 import { useThemeColor } from '../constants/theme';
-import { auth } from '../firebase/App';
+import { auth } from '../firebase/config';
 import { styles } from '../theme';
 
 const SignupScreen = ({ navigation }) => {

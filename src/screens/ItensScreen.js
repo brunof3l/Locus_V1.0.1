@@ -10,7 +10,7 @@ import FilterTrigger from '../components/FilterTrigger';
 import Header from '../components/Header';
 import OutlineButton from '../components/OutlineButton';
 import { useThemeColor } from '../constants/theme';
-import { db } from '../firebase/App';
+import { db } from '../firebase/config';
 import { styles } from '../theme';
 
 const ItensScreen = ({ navigation }) => {

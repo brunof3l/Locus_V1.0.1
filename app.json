@@ -27,11 +27,17 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-router"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "6597c0f7-81d1-437b-a505-8502324c28bb"
+      }
     }
   }
 }

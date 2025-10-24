@@ -9,7 +9,7 @@ import Header from '../components/Header';
 import OutlineButton from '../components/OutlineButton';
 import PrimaryButton from '../components/PrimaryButton';
 import { useThemeColor } from '../constants/theme';
-import { auth, db } from '../firebase/App';
+import { auth, db } from '../firebase/config';
 import { styles } from '../theme';
 
 import { documentDirectory, EncodingType, writeAsStringAsync } from 'expo-file-system';
