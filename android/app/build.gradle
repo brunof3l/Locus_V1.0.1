@@ -76,8 +76,8 @@ react {
     //   The hermes compiler command to run. By default it is 'hermesc'
     // hermesCommand = "$rootDir/my-custom-hermesc/bin/hermesc"
     //
-    //   The list of flags to pass to the Hermes compiler with optimizations for Android
-    hermesFlags = ["-O", "-output-source-map", "-w", "-hermes-parser-eagerly-validate-ts-signatures"]
+    //   The list of flags to pass to the Hermes compiler. By default is "-O", "-output-source-map"
+    // hermesFlags = ["-O", "-output-source-map"]
 
     if (rnVersion >= versionToNumber(0, 75, 0)) {
         /* Autolinking */

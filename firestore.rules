@@ -2,11 +2,57 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isNonEmptyString(s) {
+      return s is string && s.size() > 0;
+    }
+
+    function isStringIfPresent(data, key) {
+      return !(key in data) || (data[key] is string);
+    }
+
+    function patrimonioValid(data) {
+      let allowedStates = ['Novo', 'Em uso', 'Em manutenção', 'Danificado'];
+      let allowedKeys = ['DESCRICAO', 'LOCALIZACAO', 'ESTADO', 'MARCA', 'MODELO', 'NUMERO_SERIE', 'SETOR_RESPONSAVEL', 'imageUrl'];
+      let requiredKeys = ['DESCRICAO', 'LOCALIZACAO', 'ESTADO'];
+
+      return
+        data.keys().hasOnly(allowedKeys) &&
+        data.keys().hasAll(requiredKeys) &&
+        isNonEmptyString(data.DESCRICAO) &&
+        isNonEmptyString(data.LOCALIZACAO) &&
+        (data.ESTADO is string) &&
+        ['Novo', 'Em uso', 'Em manutenção', 'Danificado'].hasAny([data.ESTADO]) &&
+        isStringIfPresent(data, 'MARCA') &&
+        isStringIfPresent(data, 'MODELO') &&
+        isStringIfPresent(data, 'NUMERO_SERIE') &&
+        isStringIfPresent(data, 'SETOR_RESPONSAVEL') &&
+        isStringIfPresent(data, 'imageUrl');
+    }
+
+    function usersValidOnCreate(data) {
+      let allowedKeys = ['displayName', 'email', 'role'];
+      return
+        data.keys().hasOnly(allowedKeys) &&
+        isStringIfPresent(data, 'displayName') &&
+        isStringIfPresent(data, 'email') &&
+        (!( 'role' in data) || data.role == 'user');
+    }
+
+    function usersValidOnUpdate(newData, oldData) {
+      let allowedKeys = ['displayName', 'email', 'role'];
+      let changed = newData.diff(oldData).changedKeys();
+      return
+        newData.keys().hasOnly(allowedKeys) &&
+        isStringIfPresent(newData, 'displayName') &&
+        isStringIfPresent(newData, 'email') &&
+        (!( 'role' in changed ) || newData.role == 'user');
+    }
+
     // Coleção de patrimônio: somente usuários autenticados podem ler/criar/atualizar.
     // Exclusão é restrita a administradores (role == 'admin').
     match /patrimonio/{itemId} {
       allow read: if request.auth != null;
-      allow create, update: if request.auth != null;
+      allow create, update: if request.auth != null && patrimonioValid(request.resource.data);
       allow delete: if request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
@@ -15,8 +61,8 @@ service cloud.firestore {
     // Cada usuário só pode editar o próprio documento.
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId && usersValidOnCreate(request.resource.data);
+      allow update: if request.auth != null && request.auth.uid == userId && usersValidOnUpdate(request.resource.data, resource.data);
       // delete não especificado: por padrão, negado.
     }
   }
