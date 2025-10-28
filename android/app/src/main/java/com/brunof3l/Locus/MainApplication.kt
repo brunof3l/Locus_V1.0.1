@@ -1,4 +1,4 @@
-package com.brunof3l.Locus
+package com.brunof3l.locus
 
 import android.app.Application
 import android.content.res.Configuration

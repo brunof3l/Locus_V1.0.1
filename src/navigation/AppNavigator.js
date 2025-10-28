@@ -1,126 +1,160 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { Feather } from '@expo/vector-icons'; // Importar ícones
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'; // Importar
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Feather } from '@expo/vector-icons';
-import { onAuthStateChanged } from 'firebase/auth';
-
-import { auth } from '../firebase/config';
-import { navTheme, styles } from '../theme';
-import { useThemeColor } from '../constants/theme'
-
-import LoginScreen from '../screens/LoginScreen';
-import SignupScreen from '../screens/SignupScreen';
-import HomeScreen from '../screens/HomeScreen';
-import ItensScreen from '../screens/ItensScreen';
-import ScannerScreen from '../screens/ScannerScreen';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+import { useCallback } from 'react'; // Remover useEffect, useState
+import { ActivityIndicator, Text, View } from 'react-native'; // Adicionar Text
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Toast from 'react-native-toast-message';
+import { useThemeColor } from '../constants/theme';
+import { AuthProvider, useAuth } from '../context/AuthContext';
+import AdminScreen from '../screens/AdminScreen';
 import CadastroItemScreen from '../screens/CadastroItemScreen';
 import DetalhesItemScreen from '../screens/DetalhesItemScreen';
-import AdminScreen from '../screens/AdminScreen';
-import Toast from 'react-native-toast-message';
+import HomeScreen from '../screens/HomeScreen';
+import ItensScreen from '../screens/ItensScreen';
+import LoginScreen from '../screens/LoginScreen';
+import ScannerScreen from '../screens/ScannerScreen';
+import SignupScreen from '../screens/SignupScreen';
+import { styles } from '../theme';
 
-// Fonts
-import { Roboto_400Regular, Roboto_500Medium, Roboto_700Bold, useFonts } from '@expo-google-fonts/roboto';
-import { AuthProvider } from '../context/AuthContext';
-import { useAuth } from '../context/AuthContext';
+const Stack = createNativeStackNavigator();
+const AuthStackNav = createNativeStackNavigator();
+const Tab = createBottomTabNavigator(); // Instanciar BottomTabNavigator
 
-// GestureHandler root view wrapper
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+SplashScreen.preventAutoHideAsync();
 
-const AuthStack = createNativeStackNavigator();
-const AppTabs = createBottomTabNavigator();
-const RootStack = createNativeStackNavigator();
-
-const Tabs = () => {
-  const { role } = useAuth();
+// #### NOVO: Componente para as abas inferiores ####
+const TabsNavigator = () => {
   const colors = useThemeColor();
+  const { user } = useAuth(); // Acessar user para pegar o role
+  const isAdmin = user?.role === 'admin';
+
   return (
-    <AppTabs.Navigator
+    <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
+        tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.subtleText,
         tabBarStyle: {
-          backgroundColor: colors.card,
+          backgroundColor: colors.card, // Cor de fundo das abas
           borderTopColor: colors.border,
-        },
-        tabBarLabelStyle: {
-          fontFamily: 'Roboto_500Medium',
-          fontSize: 12,
+          height: 60, // Ajuste a altura se necessário
+          paddingBottom: 5,
+          paddingTop: 5,
         },
         tabBarIcon: ({ color, size }) => {
-          const icon = route.name === 'Início' ? 'home' : route.name === 'Itens' ? 'grid' : 'shield';
-          return <Feather name={icon} size={size} color={color} />;
+          let iconName;
+
+          if (route.name === 'Início') {
+            iconName = 'home';
+          } else if (route.name === 'Itens') {
+            iconName = 'grid'; // Ou 'list', 'box', etc.
+          } else if (route.name === 'AdminTab' && isAdmin) { // Icone para Admin
+            iconName = 'tool';
+          }
+
+          return <Feather name={iconName} size={size} color={color} />;
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
         },
       })}
     >
-      <AppTabs.Screen name="Início" component={HomeScreen} />
-      <AppTabs.Screen name="Itens" component={ItensScreen} />
-      {role === 'admin' && <AppTabs.Screen name="Admin" component={AdminScreen} />}
-    </AppTabs.Navigator>
+      <Tab.Screen
+        name="Início"
+        component={HomeScreen}
+      />
+      <Tab.Screen
+        name="Itens"
+        component={ItensScreen}
+      />
+      {isAdmin && (
+        <Tab.Screen
+          name="AdminTab" // Nome interno da rota para a aba Admin
+          component={AdminScreen}
+          options={{
+            title: "Admin" // Título que aparece na aba
+          }}
+        />
+      )}
+    </Tab.Navigator>
   );
 };
 
+
+// Navegador Principal (quando logado) - AGORA USA TabsNavigator
+const AppStack = () => {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Tabs" component={TabsNavigator} /> {/* Aqui está o novo navegador de abas */}
+      <Stack.Screen name="Scanner" component={ScannerScreen} />
+      <Stack.Screen name="CadastroItem" component={CadastroItemScreen} />
+      <Stack.Screen name="DetalhesItem" component={DetalhesItemScreen} />
+      {/* AdminScreen não precisa estar aqui diretamente, pois já está dentro de TabsNavigator */}
+    </Stack.Navigator>
+  );
+};
+
+// Navegador de Autenticação (quando deslogado)
+const AuthStack = () => (
+  <AuthStackNav.Navigator screenOptions={{ headerShown: false }}>
+    <AuthStackNav.Screen name="Login" component={LoginScreen} />
+    <AuthStackNav.Screen name="Signup" component={SignupScreen} />
+  </AuthStackNav.Navigator>
+);
+
+// Componente que decide qual Stack mostrar
 const RootNavigator = () => {
   const colors = useThemeColor();
-  const [user, setUser] = useState(null);
-  const [checking, setChecking] = useState(true);
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setChecking(false);
-    });
-    return () => unsub();
-  }, []);
-
-  if (checking) {
+  if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }]}> 
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }]}>
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
-  if (!user) {
+  return (
+    <NavigationContainer>
+      {user ? <AppStack /> : <AuthStack />}
+    </NavigationContainer>
+  );
+};
+
+// Componente principal que carrega fontes e inicializa tudo
+export default function AppNavigator() {
+  const colors = useThemeColor();
+  let [fontsLoaded, fontError] = useFonts({
+    'Roboto_400Regular': require('../../assets/fonts/Roboto-Regular.ttf'),
+    'Roboto_700Bold': require('../../assets/fonts/Roboto-Bold.ttf'),
+  });
+
+  const onLayoutRootView = useCallback(async () => {
+    if (fontsLoaded || fontError) {
+      await SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) {
     return (
-      <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-        <AuthStack.Screen name="Login" component={LoginScreen} />
-        <AuthStack.Screen name="Cadastro" component={SignupScreen} />
-      </AuthStack.Navigator>
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{color: colors.subtleText, marginTop: 10}}>Carregando fontes...</Text>
+      </View>
     );
   }
 
   return (
-    <RootStack.Navigator screenOptions={{ headerShown: false }}>
-      <RootStack.Screen name="Tabs" component={Tabs} />
-      <RootStack.Screen name="Scanner" component={ScannerScreen} />
-      <RootStack.Screen name="CadastroItem" component={CadastroItemScreen} />
-      <RootStack.Screen name="DetalhesItem" component={DetalhesItemScreen} />
-    </RootStack.Navigator>
-  );
-};
-
-export default function AppNavigator() {
-  const [fontsLoaded] = useFonts({
-    Roboto_400Regular,
-    Roboto_500Medium,
-    Roboto_700Bold,
-  });
-
-  if (!fontsLoaded) {
-    return null;
-  }
-
-  return (
-    <AuthProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <NavigationContainer theme={navTheme}>
-          <RootNavigator />
-        </NavigationContainer>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+      <AuthProvider>
+        <RootNavigator />
         <Toast />
-      </GestureHandlerRootView>
-    </AuthProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -1,4 +1,4 @@
-package com.brunof3l.Locus
+package com.brunof3l.locus
 
 import android.os.Build
 import android.os.Bundle

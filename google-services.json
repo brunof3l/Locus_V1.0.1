@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "774733852369",
+    "project_id": "locus-64393",
+    "storage_bucket": "locus-64393.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:774733852369:android:1689c94a48883087695ff0",
+        "android_client_info": {
+          "package_name": "com.brunof3l.locus"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC48ySt5TECv6Ju4KFTRv_ViIyA9D1865Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
