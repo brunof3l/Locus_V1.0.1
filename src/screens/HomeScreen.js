@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { collection, onSnapshot, signOut } from 'firebase/firestore';
+import { collection, onSnapshot, query, getDocs } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, Text, TouchableOpacity } from 'react-native';
 import * as XLSX from 'xlsx';
@@ -11,18 +11,19 @@ import PrimaryButton from '../components/PrimaryButton';
 import { useThemeColor } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
 import { auth, db } from '../firebase/config';
+import { signOut } from 'firebase/auth';
 import { styles } from '../theme';
 
 // Importações específicas do Firestore para a função de exportar
 // (Garantindo que 'query' e 'getDocs' estejam corretos)
-import { collection as firestoreCollection, getDocs as firestoreGetDocs, query as firestoreQuery } from 'firebase/firestore';
+
 
 const HomeScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const colors = useThemeColor();
   const [totalCount, setTotalCount] = useState(0);
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = role === 'admin';
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -50,8 +51,8 @@ const HomeScreen = ({ navigation }) => {
   const exportData = async () => {
     setExporting(true);
     try {
-      const q = firestoreQuery(firestoreCollection(db, 'patrimonio'));
-      const querySnapshot = await firestoreGetDocs(q);
+      const q = query(collection(db, 'patrimonio'));
+      const querySnapshot = await getDocs(q);
       const data = querySnapshot.docs.map((doc) => ({
         COD: doc.id,
         ...doc.data(),
@@ -95,7 +96,7 @@ const HomeScreen = ({ navigation }) => {
         title="Início"
         right={
           <TouchableOpacity onPress={handleLogout} style={{ padding: 4 }}>
-            <Feather name="log-out" size={24} color={colors.danger} />
+            <Feather name="log-out" size={24} color={colors.error} />
           </TouchableOpacity>
         }
       />
@@ -115,7 +116,7 @@ const HomeScreen = ({ navigation }) => {
             title={exporting ? 'Exportando...' : 'Exportar Dados para Excel'}
             onPress={exportData}
             disabled={exporting}
-            style={{ backgroundColor: exporting ? colors.subtleBackground : '#1D6F42' }}
+            style={{ backgroundColor: exporting ? colors.card : colors.success }}
           />
         )}
 

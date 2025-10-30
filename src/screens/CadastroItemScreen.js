@@ -58,6 +58,11 @@ const CadastroItemScreen = ({ route, navigation }) => {
     SETOR_RESPONSAVEL: z.string().optional(),
   });
   const saveItem = async () => {
+    if (!cod) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Alert.alert('Erro', 'Código do patrimônio ausente. Escaneie ou informe o código.');
+      return;
+    }
     const parsed = itemSchema.safeParse(form);
     if (!parsed.success) {
       const msg = parsed.error.errors.map((e) => e.message).join('\n');
@@ -137,7 +142,7 @@ const CadastroItemScreen = ({ route, navigation }) => {
             <OutlineButton title="Adicionar/Alterar Foto" icon="image" />
           </TouchableOpacity>
 
-          <PrimaryButton title={saving ? 'Salvando...' : 'Salvar Item'} icon="save" onPress={saveItem} disabled={saving} />
+          <PrimaryButton title={saving ? 'Salvando...' : 'Salvar Item'} icon="save" onPress={saveItem} disabled={saving || !cod} />
         </Card>
       </ScrollView>
     </SafeAreaView>

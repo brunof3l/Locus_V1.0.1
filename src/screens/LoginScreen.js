@@ -1,21 +1,22 @@
+import { Feather } from '@expo/vector-icons'; // Importar ícones Feather
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
-// IMPORTAR Pressable
-import { ActivityIndicator, Alert, Pressable, SafeAreaView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, SafeAreaView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Card from '../components/Card';
 import LocusLogo from '../components/LocusLogo';
 import PrimaryButton from '../components/PrimaryButton';
 import { useThemeColor } from '../constants/theme';
-import { useAuth } from '../context/AuthContext'; // Importar useAuth
+import { useAuth } from '../context/AuthContext';
 import { auth } from '../firebase/config';
 import { styles } from '../theme';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // NOVO estado para visibilidade da senha
   const colors = useThemeColor();
-  const { loading: authLoading } = useAuth(); // Usar o loading do contexto
-  const [loginLoading, setLoginLoading] = useState(false); // Estado local para o botão
+  const { loading: authLoading } = useAuth();
+  const [loginLoading, setLoginLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -25,7 +26,6 @@ const LoginScreen = ({ navigation }) => {
     try {
       setLoginLoading(true);
       await signInWithEmailAndPassword(auth, email.trim(), password);
-      // AuthContext irá lidar com a navegação
     } catch (err) {
       Alert.alert('Erro no Login', err.message);
     } finally {
@@ -33,7 +33,6 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
-  // Se o AuthContext ainda está a carregar, mostra loading
   if (authLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }]}>
@@ -59,14 +58,27 @@ const LoginScreen = ({ navigation }) => {
           placeholderTextColor={colors.subtleText}
         />
         <Text style={styles.label}>Senha</Text>
-        <TextInput style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text }]} secureTextEntry value={password} onChangeText={setPassword} placeholder="Digite sua senha..." placeholderTextColor={colors.subtleText} />
+        {/* Input de Senha com Ícone de Visibilidade */}
+        <View style={[styles.input, { backgroundColor: colors.card, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', paddingRight: 10 }]}>
+          <TextInput
+            style={{ flex: 1, color: colors.text, paddingVertical: 0 }} // Ajustar paddingVertical para não ter padding extra
+            secureTextEntry={!showPassword} // Controlar visibilidade
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Digite sua senha..."
+            placeholderTextColor={colors.subtleText}
+          />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 5 }}>
+            <Feather name={showPassword ? 'eye' : 'eye-off'} size={20} color={colors.subtleText} />
+          </TouchableOpacity>
+        </View>
+
         <PrimaryButton title={loginLoading ? 'Entrando...' : 'Entrar'} icon="log-in" onPress={handleLogin} disabled={loginLoading} />
 
-        {/* SUBSTITUIR TouchableOpacity por Pressable */}
         <Pressable
-           hitSlop={12} // Aumenta a área de toque
-           style={{ marginTop: 20, alignItems: 'center' }} // Centraliza o texto
-           onPress={() => navigation.push('Signup')} // Usar PUSH para garantir
+           hitSlop={12}
+           style={{ marginTop: 20, alignItems: 'center' }}
+           onPress={() => navigation.push('Signup')}
         >
            <Text style={[styles.linkText, { color: colors.subtleText }]}>
              Não tem conta? <Text style={{ fontWeight: 'bold', color: colors.primary }}>Cadastre-se</Text>

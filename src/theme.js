@@ -119,6 +119,21 @@ export const styles = StyleSheet.create({
     color: COLORS.subtleText,
     marginBottom: 16,
   },
+  welcomeText: {
+    fontSize: 18,
+    fontFamily: 'Roboto_400Regular',
+    color: COLORS.text,
+  },
+  infoText: {
+    fontSize: 14,
+    fontFamily: 'Roboto_400Regular',
+    color: COLORS.subtleText,
+  },
+  countText: {
+    fontSize: 28,
+    fontFamily: 'Roboto_700Bold',
+    color: COLORS.primary,
+  },
   card: {
     backgroundColor: COLORS.card,
     marginHorizontal: 16,
@@ -134,7 +149,7 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.subtleText,
     marginBottom: 8,
-    fontFamily: 'Roboto_500Medium',
+    fontFamily: 'Roboto_400Regular',
   },
   input: {
     borderWidth: 1,
@@ -269,7 +284,7 @@ export const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   emptyText: {
-    fontFamily: 'Roboto_500Medium',
+    fontFamily: 'Roboto_400Regular',
     color: COLORS.subtleText,
     fontSize: 16,
   },
@@ -323,7 +338,7 @@ export const styles = StyleSheet.create({
   scannerHelperText: {
     color: 'white',
     fontSize: 16,
-    fontFamily: 'Roboto_500Medium',
+    fontFamily: 'Roboto_400Regular',
     textAlign: 'center',
   },
   scannerCloseButton: {

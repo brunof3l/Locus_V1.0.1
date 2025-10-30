@@ -4,7 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useCallback } from 'react'; // Remover useEffect, useState
+import { useEffect } from 'react'; // Usar useEffect para controlar o Splash
 import { ActivityIndicator, Text, View } from 'react-native'; // Adicionar Text
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
@@ -29,8 +29,8 @@ SplashScreen.preventAutoHideAsync();
 // #### NOVO: Componente para as abas inferiores ####
 const TabsNavigator = () => {
   const colors = useThemeColor();
-  const { user } = useAuth(); // Acessar user para pegar o role
-  const isAdmin = user?.role === 'admin';
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
 
   return (
     <Tab.Navigator
@@ -39,45 +39,33 @@ const TabsNavigator = () => {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.subtleText,
         tabBarStyle: {
-          backgroundColor: colors.card, // Cor de fundo das abas
+          backgroundColor: colors.card,
           borderTopColor: colors.border,
-          height: 60, // Ajuste a altura se necessário
+          height: 60,
           paddingBottom: 5,
           paddingTop: 5,
         },
         tabBarIcon: ({ color, size }) => {
-          let iconName;
-
-          if (route.name === 'Início') {
-            iconName = 'home';
-          } else if (route.name === 'Itens') {
-            iconName = 'grid'; // Ou 'list', 'box', etc.
-          } else if (route.name === 'AdminTab' && isAdmin) { // Icone para Admin
-            iconName = 'tool';
-          }
-
-          return <Feather name={iconName} size={size} color={color} />;
+          const iconMap = {
+            'Início': 'home',
+            'Itens': 'grid',
+            'AdminTab': 'tool',
+          };
+          const name = iconMap[route.name] || 'circle';
+          return <Feather name={name} size={size} color={color} />;
         },
         tabBarLabelStyle: {
           fontSize: 12,
         },
       })}
     >
-      <Tab.Screen
-        name="Início"
-        component={HomeScreen}
-      />
-      <Tab.Screen
-        name="Itens"
-        component={ItensScreen}
-      />
+      <Tab.Screen name="Início" component={HomeScreen} />
+      <Tab.Screen name="Itens" component={ItensScreen} />
       {isAdmin && (
         <Tab.Screen
-          name="AdminTab" // Nome interno da rota para a aba Admin
+          name="AdminTab"
           component={AdminScreen}
-          options={{
-            title: "Admin" // Título que aparece na aba
-          }}
+          options={{ title: 'Admin' }}
         />
       )}
     </Tab.Navigator>
@@ -89,11 +77,10 @@ const TabsNavigator = () => {
 const AppStack = () => {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Tabs" component={TabsNavigator} /> {/* Aqui está o novo navegador de abas */}
+      <Stack.Screen name="Tabs" component={TabsNavigator} />
       <Stack.Screen name="Scanner" component={ScannerScreen} />
       <Stack.Screen name="CadastroItem" component={CadastroItemScreen} />
       <Stack.Screen name="DetalhesItem" component={DetalhesItemScreen} />
-      {/* AdminScreen não precisa estar aqui diretamente, pois já está dentro de TabsNavigator */}
     </Stack.Navigator>
   );
 };
@@ -134,9 +121,9 @@ export default function AppNavigator() {
     'Roboto_700Bold': require('../../assets/fonts/Roboto-Bold.ttf'),
   });
 
-  const onLayoutRootView = useCallback(async () => {
+  useEffect(() => {
     if (fontsLoaded || fontError) {
-      await SplashScreen.hideAsync();
+      SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
 
@@ -150,7 +137,7 @@ export default function AppNavigator() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <RootNavigator />
         <Toast />

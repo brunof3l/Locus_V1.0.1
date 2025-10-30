@@ -42,3 +42,24 @@ app-example
 # generated native folders
 #/ios
 #/android
+
+# Android build outputs
+android/app/build/
+android/build/
+app/build/
+
+# Artifacts
+*.apk
+*.aab
+
+# Gradle caches
+.gradle/
+android/.gradle/
+
+# IDE
+.idea/
+
+# Logs
+*.log
+android/hs_err_pid*.log
+android/replay_pid*.log
